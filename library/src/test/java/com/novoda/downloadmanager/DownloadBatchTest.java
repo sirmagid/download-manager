@@ -52,16 +52,6 @@ public class DownloadBatchTest {
             }
         }).given(downloadFile).download(downloadFileCallbackCaptor.capture());
 
-        reset(
-                downloadBatchTitle,
-                downloadBatchId,
-                downloadFiles,
-                bytesDownloaded,
-                downloadBatchStatus,
-                downloadsBatchPersistence,
-                callbackThrottle
-        );
-
         downloadBatch = new DownloadBatch(
                 downloadBatchTitle,
                 downloadBatchId,
@@ -71,6 +61,8 @@ public class DownloadBatchTest {
                 downloadsBatchPersistence,
                 callbackThrottle
         );
+        downloadBatch.setCallback(downloadBatchCallback);
+        resetMocks();
     }
 
     @Test
@@ -82,6 +74,8 @@ public class DownloadBatchTest {
 
     @Test
     public void doesNotEmit_whenCallbackIsAbsent() {
+        downloadBatch.setCallback(null);
+
         downloadBatch.download();
 
         verifyZeroInteractions(downloadBatchCallback);
@@ -114,8 +108,6 @@ public class DownloadBatchTest {
 
     @Test
     public void emitsStatus_whenDownloading() {
-        downloadBatch.setCallback(downloadBatchCallback);
-
         downloadBatch.download();
 
         verify(downloadBatchCallback).onUpdate(downloadBatchStatus);
@@ -124,7 +116,6 @@ public class DownloadBatchTest {
     @Test
     public void marksAsError_whenBatchSizeIsZero() {
         given(downloadFile.getTotalSize()).willReturn(0L);
-        downloadBatch.setCallback(downloadBatchCallback);
 
         downloadBatch.download();
 
@@ -134,7 +125,6 @@ public class DownloadBatchTest {
     @Test
     public void emitsErrorStatus_whenBatchSizeIsZero() {
         given(downloadFile.getTotalSize()).willReturn(0L);
-        downloadBatch.setCallback(downloadBatchCallback);
 
         downloadBatch.download();
 
@@ -144,7 +134,6 @@ public class DownloadBatchTest {
     @Test
     public void doesNotScheduleFileDownload_whenMarkedAsError() {
         given(downloadFile.getTotalSize()).willReturn(0L);
-        downloadBatch.setCallback(downloadBatchCallback);
 
         downloadBatch.download();
 
@@ -153,8 +142,6 @@ public class DownloadBatchTest {
 
     @Test
     public void schedulesFileDownload() {
-        downloadBatch.setCallback(downloadBatchCallback);
-
         downloadBatch.download();
 
         verify(downloadFile).download(any(DownloadFile.Callback.class));
@@ -164,12 +151,23 @@ public class DownloadBatchTest {
     public void stopsDownloadingFiles_whenBatchCannotContinue() {
         DownloadFile additionalDownloadFile = mock(DownloadFile.class);
         downloadFiles.add(additionalDownloadFile);
-        downloadBatch.setCallback(downloadBatchCallback);
         downloadFileStatus.markAsError(DownloadError.Error.UNKNOWN);
 
         downloadBatch.download();
 
         verify(additionalDownloadFile, never()).download(any(DownloadFile.Callback.class));
+    }
+
+    private void resetMocks() {
+        reset(
+                downloadBatchTitle,
+                downloadBatchId,
+                downloadFiles,
+                bytesDownloaded,
+                downloadBatchStatus,
+                downloadsBatchPersistence,
+                callbackThrottle
+        );
     }
 
     private void doesNothing() {
