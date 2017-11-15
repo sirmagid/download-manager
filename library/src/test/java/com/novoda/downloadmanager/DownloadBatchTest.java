@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.novoda.downloadmanager.DownloadBatchIdFixtures.aDownloadBatchId;
 import static com.novoda.downloadmanager.DownloadBatchTitleFixtures.aDownloadBatchTitle;
 import static com.novoda.downloadmanager.DownloadFileFixtures.aDownloadFile;
@@ -17,12 +18,12 @@ import static org.mockito.Mockito.*;
 
 public class DownloadBatchTest {
 
-    private static final DownloadFile DOWNLOAD_FILE = aDownloadFile().build();
     private static final Long DOWNLOAD_FILE_BYTES_DOWNLOADED = 1000L;
 
+    private final DownloadFile downloadFile = spy(aDownloadFile().build());
     private final DownloadBatchTitle downloadBatchTitle = spy(aDownloadBatchTitle().build());
     private final DownloadBatchId downloadBatchId = spy(aDownloadBatchId().build());
-    private final InternalDownloadBatchStatus internalDownloadBatchStatus = spy(anInternalDownloadsBatchStatus().build());
+    private final InternalDownloadBatchStatus downloadBatchStatus = spy(anInternalDownloadsBatchStatus().build());
     private final DownloadsBatchPersistence downloadsBatchPersistence = mock(DownloadsBatchPersistence.class);
     private final CallbackThrottle callbackThrottle = mock(CallbackThrottle.class);
     private final DownloadBatchCallback downloadBatchCallback = mock(DownloadBatchCallback.class);
@@ -33,14 +34,15 @@ public class DownloadBatchTest {
 
     @Before
     public void setUp() {
-        bytesDownloaded.put(DOWNLOAD_FILE.id(), DOWNLOAD_FILE_BYTES_DOWNLOADED);
-        downloadFiles.add(DOWNLOAD_FILE);
+        bytesDownloaded.put(downloadFile.id(), DOWNLOAD_FILE_BYTES_DOWNLOADED);
+        downloadFiles.add(downloadFile);
+
         reset(
                 downloadBatchTitle,
                 downloadBatchId,
                 downloadFiles,
                 bytesDownloaded,
-                internalDownloadBatchStatus,
+                downloadBatchStatus,
                 downloadsBatchPersistence,
                 callbackThrottle
         );
@@ -50,7 +52,7 @@ public class DownloadBatchTest {
                 downloadBatchId,
                 downloadFiles,
                 bytesDownloaded,
-                internalDownloadBatchStatus,
+                downloadBatchStatus,
                 downloadsBatchPersistence,
                 callbackThrottle
         );
@@ -64,11 +66,67 @@ public class DownloadBatchTest {
     }
 
     @Test
+    public void doesNotEmit_whenCallbackIsAbsent() {
+        downloadBatch.download();
+
+        verifyZeroInteractions(downloadBatchCallback);
+    }
+
+    @Test
     public void doesNothing_whenStatusIsPaused() {
-        given(internalDownloadBatchStatus.status()).willReturn(DownloadBatchStatus.Status.PAUSED);
+        given(downloadBatchStatus.status()).willReturn(DownloadBatchStatus.Status.PAUSED);
 
         downloadBatch.download();
 
+        doesNothing();
+    }
+
+    @Test
+    public void doesNothing_whenStatusIsDeleted() {
+        given(downloadBatchStatus.status()).willReturn(DownloadBatchStatus.Status.DELETION);
+
+        downloadBatch.download();
+
+        doesNothing();
+    }
+
+    @Test
+    public void markAsDownloading() {
+        downloadBatch.download();
+
+        verify(downloadBatchStatus).markAsDownloading(downloadsBatchPersistence);
+    }
+
+    @Test
+    public void emitsStatus_whenDownloading() {
+        downloadBatch.setCallback(downloadBatchCallback);
+
+        downloadBatch.download();
+
+        verify(downloadBatchCallback).onUpdate(downloadBatchStatus);
+    }
+
+    @Test
+    public void marksAsError_whenBatchSizeIsZero() {
+        given(downloadFile.getTotalSize()).willReturn(0L);
+        downloadBatch.setCallback(downloadBatchCallback);
+
+        downloadBatch.download();
+
+        verify(downloadBatchStatus).markAsError(new DownloadError(DownloadError.Error.NETWORK_ERROR_CANNOT_DOWNLOAD_FILE), downloadsBatchPersistence);
+    }
+
+    @Test
+    public void emitsErrorStatus_whenBatchSizeIsZero() {
+        given(downloadFile.getTotalSize()).willReturn(0L);
+        downloadBatch.setCallback(downloadBatchCallback);
+
+        downloadBatch.download();
+
+        assertThat(downloadBatchStatus.getDownloadErrorType()).isEqualTo(DownloadError.Error.NETWORK_ERROR_CANNOT_DOWNLOAD_FILE);
+    }
+
+    private void doesNothing() {
         verifyZeroInteractions(
                 downloadBatchTitle,
                 downloadBatchId,
@@ -79,5 +137,4 @@ public class DownloadBatchTest {
                 downloadFiles
         );
     }
-
 }

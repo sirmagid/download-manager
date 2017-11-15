@@ -102,7 +102,6 @@ class DownloadFile {
     private FilePersistenceResult createFile() {
         if (filePath.isUnknown()) {
             return filePersistence.create(fileName, fileSize);
-
         } else {
             return filePersistence.create(filePath);
         }

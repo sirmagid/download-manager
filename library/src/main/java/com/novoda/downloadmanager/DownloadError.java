@@ -20,4 +20,23 @@ class DownloadError {
     Error error() {
         return error;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        DownloadError that = (DownloadError) o;
+
+        return error == that.error;
+    }
+
+    @Override
+    public int hashCode() {
+        return error.hashCode();
+    }
 }
