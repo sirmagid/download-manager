@@ -7,13 +7,18 @@ import java.util.Map;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.novoda.downloadmanager.DownloadBatchIdFixtures.aDownloadBatchId;
 import static com.novoda.downloadmanager.DownloadBatchTitleFixtures.aDownloadBatchTitle;
 import static com.novoda.downloadmanager.DownloadFileFixtures.aDownloadFile;
+import static com.novoda.downloadmanager.DownloadFileStatusFixtures.aDownloadFileStatus;
 import static com.novoda.downloadmanager.InternalDownloadBatchStatusFixtures.anInternalDownloadsBatchStatus;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.*;
 
 public class DownloadBatchTest {
@@ -31,11 +36,21 @@ public class DownloadBatchTest {
     private final List<DownloadFile> downloadFiles = spy(new ArrayList<DownloadFile>());
 
     private DownloadBatch downloadBatch;
+    private DownloadFileStatus downloadFileStatus = aDownloadFileStatus().build();
 
     @Before
     public void setUp() {
         bytesDownloaded.put(downloadFile.id(), DOWNLOAD_FILE_BYTES_DOWNLOADED);
         downloadFiles.add(downloadFile);
+
+        final ArgumentCaptor<DownloadFile.Callback> downloadFileCallbackCaptor = ArgumentCaptor.forClass(DownloadFile.Callback.class);
+        willAnswer(new Answer<Void>() {
+            @Override
+            public Void answer(InvocationOnMock invocation) throws Throwable {
+                downloadFileCallbackCaptor.getValue().onUpdate(downloadFileStatus);
+                return null;
+            }
+        }).given(downloadFile).download(downloadFileCallbackCaptor.capture());
 
         reset(
                 downloadBatchTitle,
@@ -124,6 +139,37 @@ public class DownloadBatchTest {
         downloadBatch.download();
 
         assertThat(downloadBatchStatus.getDownloadErrorType()).isEqualTo(DownloadError.Error.NETWORK_ERROR_CANNOT_DOWNLOAD_FILE);
+    }
+
+    @Test
+    public void doesNotScheduleFileDownload_whenMarkedAsError() {
+        given(downloadFile.getTotalSize()).willReturn(0L);
+        downloadBatch.setCallback(downloadBatchCallback);
+
+        downloadBatch.download();
+
+        verify(downloadFile, never()).download(any(DownloadFile.Callback.class));
+    }
+
+    @Test
+    public void schedulesFileDownload() {
+        downloadBatch.setCallback(downloadBatchCallback);
+
+        downloadBatch.download();
+
+        verify(downloadFile).download(any(DownloadFile.Callback.class));
+    }
+
+    @Test
+    public void stopsDownloadingFiles_whenBatchCannotContinue() {
+        DownloadFile additionalDownloadFile = mock(DownloadFile.class);
+        downloadFiles.add(additionalDownloadFile);
+        downloadBatch.setCallback(downloadBatchCallback);
+        downloadFileStatus.markAsError(DownloadError.Error.UNKNOWN);
+
+        downloadBatch.download();
+
+        verify(additionalDownloadFile, never()).download(any(DownloadFile.Callback.class));
     }
 
     private void doesNothing() {
