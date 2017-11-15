@@ -86,7 +86,7 @@ class DownloadBatch {
         }
 
         if (networkError()) {
-            DownloadsNetworkRecoveryCreator.getInstance().scheduleRecovery();
+            DownloadsNetworkRecoveryCreator.getInstance().scheduleRecovery(); // TODO: Move so this can be tested.
         }
 
         if (downloadBatchStatus.status() == DOWNLOADED) {
