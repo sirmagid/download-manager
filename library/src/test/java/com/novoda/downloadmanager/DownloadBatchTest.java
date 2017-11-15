@@ -158,6 +158,29 @@ public class DownloadBatchTest {
         verify(additionalDownloadFile, never()).download(any(DownloadFile.Callback.class));
     }
 
+    @Test
+    public void marksAsDownloaded_whenStatusIsDownloaded() { // TODO: Marking something that is already marked? This persists to db which update didn't do.
+        given(downloadBatchStatus.status()).willReturn(DownloadBatchStatus.Status.DOWNLOADED);
+
+        downloadBatch.download();
+
+        verify(downloadBatchStatus).markAsDownloaded(downloadsBatchPersistence);
+    }
+
+    @Test
+    public void updateThroughThrottle_whenDownloading() {
+        downloadBatch.download();
+
+        verify(callbackThrottle).update(downloadBatchStatus);
+    }
+
+    @Test
+    public void stopUpdatesThroughThrottle_whenDownloading() {
+        downloadBatch.download();
+
+        verify(callbackThrottle).stopUpdates();
+    }
+
     private void resetMocks() {
         reset(
                 downloadBatchTitle,
