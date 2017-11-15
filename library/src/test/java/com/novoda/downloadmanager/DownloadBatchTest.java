@@ -1,6 +1,6 @@
 package com.novoda.downloadmanager;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,8 +8,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 public class DownloadBatchTest {
 
@@ -17,7 +16,6 @@ public class DownloadBatchTest {
     private static final Long DOWNLOAD_FILE_BYTES_DOWNLOADED = 1000L;
     private static final DownloadBatchTitle DOWNLOAD_BATCH_TITLE = DownloadBatchTitleFixtures.aDownloadBatchTitle().build();
     private static final DownloadBatchId DOWNLOAD_BATCH_ID = DownloadBatchIdFixtures.aDownloadBatchId().build();
-    private static final List<DownloadFile> DOWNLOAD_FILES = Collections.singletonList(DOWNLOAD_FILE);
     private static final InternalDownloadBatchStatus INTERNAL_DOWNLOAD_BATCH_STATUS = InternalDownloadBatchStatusFixtures.anInternalDownloadsBatchStatus().build();
 
     private final DownloadsBatchPersistence downloadsBatchPersistence = mock(DownloadsBatchPersistence.class);
@@ -31,12 +29,21 @@ public class DownloadBatchTest {
         Map<DownloadFileId, Long> bytesDownloaded = new HashMap<>();
         bytesDownloaded.put(DOWNLOAD_FILE.id(), DOWNLOAD_FILE_BYTES_DOWNLOADED);
 
+        List<DownloadFile> downloadFiles = new ArrayList<>();
+        downloadFiles.add(DOWNLOAD_FILE);
+
+        DownloadBatchTitle downloadBatchTitleSpy = spy(DOWNLOAD_BATCH_TITLE);
+        DownloadBatchId downloadBatchIdSpy = spy(DOWNLOAD_BATCH_ID);
+        List<DownloadFile> downloadFilesSpy = spy(downloadFiles);
+        Map<DownloadFileId, Long> bytesDownloadedSpy = spy(bytesDownloaded);
+        InternalDownloadBatchStatus internalDownloadBatchStatusSpy = spy(INTERNAL_DOWNLOAD_BATCH_STATUS);
+
         downloadBatch = new DownloadBatch(
-                DOWNLOAD_BATCH_TITLE,
-                DOWNLOAD_BATCH_ID,
-                DOWNLOAD_FILES,
-                bytesDownloaded,
-                INTERNAL_DOWNLOAD_BATCH_STATUS,
+                downloadBatchTitleSpy,
+                downloadBatchIdSpy,
+                downloadFilesSpy,
+                bytesDownloadedSpy,
+                internalDownloadBatchStatusSpy,
                 downloadsBatchPersistence,
                 callbackThrottle
         );
@@ -48,4 +55,5 @@ public class DownloadBatchTest {
 
         verify(callbackThrottle).setCallback(downloadBatchCallback);
     }
+
 }
